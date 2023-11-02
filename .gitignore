@@ -154,7 +154,9 @@ cython_debug/
 
 
 Posts/
-datasets/
+datasets/code_examples.json
+datasets/dataset.json
+datasets/query-code_examples.json
 embeddings (TSDAE + MNR)/
 model (TSDAE + MNR)/
 results (TSDAE + MNR)/
