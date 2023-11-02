@@ -43,7 +43,7 @@ You can execute any of these functions by running the following command:
 You can adjust the parameters in the main sections of these functions to tailor the process to your specific needs.
 
 ## Results
-The results obtained from LSH algorithms can be found in report PDF file. The results include information such as performance metrics like HitRate, Mean Reciprocal Rank (MRR), Average Execution Time and Relevance scores. Detailed information about the effectiveness of the LSH-based code recommendation approaches is provided.
+The results obtained from LSH algorithms can be found in <a href="https://github.com/DavideDelBimbo/Code-Recommendations/blob/main/report.pdf" target="_blank">report</a> PDF file. The results include information such as performance metrics like HitRate, Mean Reciprocal Rank (MRR), Average Execution Time and Relevance scores. Detailed information about the effectiveness of the LSH-based code recommendation approaches is provided.
 
 ## License
 This project is licensed under the <a href="https://github.com/DavideDelBimbo/Code-Recommendations/blob/main/LICENSE" target="_blank">MIT</a> License.
