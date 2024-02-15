@@ -38,7 +38,7 @@ This repository includes a set of Python scripts for various stages of the proje
 - `lsh.py`: Run LSH algorithms using the generated embeddings for efficient code recommendations.
 
 You can execute any of these functions by running the following command:
-<p  align="center"><code>pip [function name].py</code></p>
+<p  align="center"><code>python [function name].py</code></p>
 
 You can adjust the parameters in the main sections of these functions to tailor the process to your specific needs.
 

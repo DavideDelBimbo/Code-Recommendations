@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-def plot(num_hash_tables: np.ndarray, rh_times: np.ndarray, qa_times: np.ndarray, title: str, labels: list, output_path: str = './output.png') -> None:
+def plot_lsh_compare(num_hash_tables: np.ndarray, rh_times: np.ndarray, qa_times: np.ndarray, title: str, labels: list, output_path: str = './output.png') -> None:
     """
     Function to plot the results of the experiments.
 
@@ -26,6 +26,40 @@ def plot(num_hash_tables: np.ndarray, rh_times: np.ndarray, qa_times: np.ndarray
 
     # Add a table.
     table = plt.table(cellText=[rh_times, qa_times], rowLabels=['Random Hyperplane', 'Query Aware'], colLabels=num_hash_tables, loc='bottom', cellLoc='center', bbox=[0, -0.4, 1, 0.2])
+
+    # Add title and axis names.
+    plt.suptitle(title)
+    plt.xlabel(labels[0])
+    plt.ylabel(labels[1])
+
+    # Save the plot.
+    plt.savefig(output_path, bbox_inches='tight', dpi=300)
+
+def plot_model_compare(num_hash_tables: np.ndarray, base_times: np.ndarray, ft_times: np.ndarray, title: str, labels: list, output_path: str = './output.png') -> None:
+    """
+    Function to plot the results of the experiments.
+
+    Parameters:
+        - num_hash_tables (np.ndarray): array with the number of hash tables.
+        - base_times (list): list of the average time of base model.
+        - ft_times (list): list of the average time of fine-tuned model.
+        - title (str): title of the plot.
+        - labels (list): array with the labels of the plots.
+        - output_path (str, optional): path to save the plot (default './output.png').
+    """
+    # Convert to numpy array if necessary.
+    if isinstance(num_hash_tables, list):
+        num_hash_tables = np.array(num_hash_tables)
+    
+    fig, ax = plt.subplots()
+
+    # Plot the data and add a legend.
+    ax.plot(num_hash_tables.astype('str'), base_times, 'o-', color='navy', label="bert-base-uncased")
+    ax.plot(num_hash_tables.astype('str'), ft_times, 'o-', color='orangered', label="TSDAE + MNR")
+    ax.legend()
+
+    # Add a table.
+    table = plt.table(cellText=[base_times, ft_times], rowLabels=['bert-base-uncased', 'TSDAE + MNR'], colLabels=num_hash_tables, loc='bottom', cellLoc='center', bbox=[0, -0.4, 1, 0.2])
 
     # Add title and axis names.
     plt.suptitle(title)

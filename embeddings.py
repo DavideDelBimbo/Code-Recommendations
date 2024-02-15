@@ -140,11 +140,11 @@ class EmbeddingsGenerator:
             pickle.dump(self.api_queries_embeddings, f)
 
 def main():
-    embeddings_generator = EmbeddingsGenerator(model_name_or_path='./model (TSDAE + MNR)')
+    embeddings_generator = EmbeddingsGenerator()
     embeddings_generator.load_code_examples()
     embeddings_generator.load_queries()
     embeddings_generator.generate_embeddings()
-    embeddings_generator.save_embeddings(output_path='./embeddings (TSDAE + MNR)')
+    embeddings_generator.save_embeddings(output_path='./embeddings (bert-base-uncased)')
 
 
 if __name__ == '__main__':

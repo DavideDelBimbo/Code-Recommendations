@@ -26,7 +26,7 @@ class DataProcessor:
 
 
     # Function for parsing the XML dataset.
-    def __parse_large_xml(self) -> None:
+    def __parse_large_xml(self):
         """
         Parses the large XML dataset using an iterator.
 

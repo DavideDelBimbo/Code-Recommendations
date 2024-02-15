@@ -6,7 +6,7 @@ import numpy as np
 import time
 from tqdm import tqdm
 
-from utils import plot
+from utils import *
 
 class RandomHyperplaneLSH:
     def __init__(self, num_hash_tables: int, num_hash_functions: int, seed: int = 0):
@@ -373,17 +373,100 @@ def execute_lsh(output_path: str, algorithm_type: str, queries_type: str, code_e
     # Return average creation and recommendation times.
     return (np.average(creation_times), np.average(recommendation_times))
 
+def execute_lsh(output_path: str, bert_model: str, queries_type: str, code_examples_text: list, queries_text: list, code_examples_vector: list, query_vectors: list, num_hash_tables: int|list, num_hash_functions: int, top_n: int, threshold: int = None, bucket_width: int = None) -> tuple[float, float]:
+    """
+    Executes Locality Sensitive Hashing (LSH) algorithms on queries and data vectors.
+
+    Parameters:
+        - output_path (str): output path to save results.
+        - bert_model (str): type of BERT model used to generate embeddings (accepted only 'base' or 'fine-tuning').
+        - queries_type (str): type of queries (accepted only 'api' or 'nl')
+        - code_examples_text (list): list of code examples dataset.
+        - queries_text (list): list of queries dataset (API or NL).
+        - code_examples_vector (list): list of code examples vectors embeddings.
+        - query_vectors (list): list of query vectors embeddings.
+        - num_hash_tables (int or list): number of hash tables.
+        - num_hash_functions (int): number of hash functions.
+        - top_n (int): number of recommended results (top n results).
+        - threshold (int, optional): threshold for Query Aware LSH (default None).
+        - bucket_width (int, optional): bucket width for Query Aware LSH (default None).
+
+    Returns:
+        - tuple containing two elements:
+            - avg_creation_times (float): average creation times for each query.
+            - avg_recommendation_times (float): average recommendation times for each query.
+    """
+    if bert_model.lower() not in ('base', 'fine-tuning'):
+        raise Exception('Invalid model, choose between "base" or "fine-tuning"!')
+    if queries_type.lower() not in ('api', 'nl'):
+        raise Exception('Invalid queries type, choose between "api" or "nl"!')
+
+    
+    original_stdout = sys.stdout
+
+    # Create output folder.
+    model_output_path = os.path.join(output_path, f'{bert_model.lower()}_model/{queries_type.lower()}_queries/M={num_hash_tables}/k={num_hash_functions}/{f"w={bucket_width}/" if bucket_width else ""}')
+
+    if not os.path.exists(model_output_path):
+        os.makedirs(model_output_path)
+
+    # Determine LSH algorithm type based.
+    if bert_model.lower() == 'base':
+        alg = QueryAwareLSH(num_hash_tables=num_hash_tables, num_hash_functions=num_hash_functions, threshold=threshold)
+        print(f'Query Aware LSH on {"API" if queries_type.lower() == "api" else "Natural Language"} queries (with M={num_hash_tables}, k={num_hash_functions}, l={threshold} and w={bucket_width}) using base BERT model.')
+    else:
+        alg = QueryAwareLSH(num_hash_tables=num_hash_tables, num_hash_functions=num_hash_functions, threshold=threshold)
+        print(f'Query Aware LSH on {"API" if queries_type.lower() == "api" else "Natural Language"} queries (with M={num_hash_tables}, k={num_hash_functions}, l={threshold} and w={bucket_width}) using fine-tuned BERT model.')
+
+    # Initialize lists to store creation and recommendation times.
+    creation_times: list = []
+    recommendation_times: list = []
+
+    for i, query_vector in enumerate(tqdm(query_vectors, desc="Processing queries", smoothing=0.05, dynamic_ncols=True)):
+        # Save output results.
+        output_result_path = os.path.join(model_output_path, f'query_{str(i + 1)}/')
+
+        if not os.path.exists(output_result_path):
+            os.makedirs(output_result_path)
+        
+        sys.stdout = open(os.path.join(output_result_path, 'results.dat'), 'w', encoding='utf-8')
+            
+        print(f'Hyperparameters:\n-M={num_hash_tables}\n-k={num_hash_functions}\n-N={top_n}\n-l={threshold}\n-w={bucket_width}')
+
+        # Execute LSH.
+        recommended_samples_index, creation_time, recommendation_time = alg.lsh(code_examples_vector, query_vector, top_n=top_n, bucket_width=bucket_width)
+        print(f'\nRecommended samples code index: {recommended_samples_index}')
+
+        # Save creation and recommendation times.
+        creation_times.append(creation_time)
+        recommendation_times.append(recommendation_time)
+
+        # Save code examples results
+        for j, recommended_sample_index in enumerate(recommended_samples_index):
+            with open(os.path.join(output_result_path, f'{str(j + 1)} (sample_{str(recommended_sample_index)}).dat'), 'w', encoding='utf-8') as f:
+                f.write(f"Query:\n\n{queries_text[i]}\n\n\n")
+                f.write(f"Code Example {recommended_sample_index} (Top {str(j + 1)}):\n\n{code_examples_text[recommended_sample_index]}")
+
+        sys.stdout.close()
+        sys.stdout = None
+
+    # Return to console.
+    sys.stdout = original_stdout
+
+    # Return average creation and recommendation times.
+    return (np.average(creation_times), np.average(recommendation_times))
+
 def main():
     """
     Main function that executes the Locality Sensitive Hashing (LSH) algorithms on code examples and queries.
 
-    This function loads text data and embeddings from files, defines hyperparameters, and executes Random Hyperplane LSH
-    and Query Aware LSH algorithms on both Natural Language queries and API queries.
+    This function loads text data and embeddings from files, defines hyperparameters, and executes LSH algorithms
+    on both Natural Language queries and API queries.
     The function saves the output results to separate folders based on the hyperparameters and query types.
 
     The function does not return any value. It saves the output results to files instead.
     """
-    output_path = './results/'
+    output_path = './results (base vs fine-tuning)/'
 
     # Load text data.
     print('Loading text...\n')
@@ -392,11 +475,12 @@ def main():
     # Load embeddings.
     print('Loading embeddings...\n')
     np.random.seed(0)
-    code_examples_vector, nl_query_vectors, api_query_vectors = load_embeddings('./embeddings (TSDAE + MNR)/code_examples_embeddings.pkl', './embeddings (TSDAE + MNR)/nl_queries_embeddings.pkl', './embeddings (TSDAE + MNR)/api_queries_embeddings.pkl')
+    base_code_examples_vector, base_nl_query_vectors, base_api_query_vectors = load_embeddings('./embeddings (bert-base-uncased)/code_examples_embeddings.pkl', './embeddings (bert-base-uncased)/nl_queries_embeddings.pkl', './embeddings (bert-base-uncased)/api_queries_embeddings.pkl')
+    ft_code_examples_vector, ft_nl_query_vectors, ft_api_query_vectors = load_embeddings('./embeddings (TSDAE + MNR)/code_examples_embeddings.pkl', './embeddings (TSDAE + MNR)/nl_queries_embeddings.pkl', './embeddings (TSDAE + MNR)/api_queries_embeddings.pkl')
 
     # Define hyperparameters.
-    num_hash_tables = [5, 10, 20, 30, 40, 50]
-    num_hash_functions = 20
+    num_hash_tables = [2, 5, 10, 20, 30, 40, 50]
+    num_hash_functions = 10
     top_n = 30
     threshold = 2
     bucket_width = 40
@@ -414,39 +498,39 @@ def main():
         bucket_width = [bucket_width]
 
     # Initialize lists to store weighted average of creation and recommendation times.
-    avg_rh_creation_times = []
-    avg_rh_recommendation_times = []
-    avg_qa_creation_times = []
-    avg_qa_recommendation_times = []
+    base_avg_creation_times = []
+    base_avg_recommendation_times = []
+    ft_avg_creation_times = []
+    ft_avg_recommendation_times = []
 
     for m in num_hash_tables:
         for k in num_hash_functions:
-            # Execute Random Hyperplane LSH on API queries.
-            avg_creation_time_api, avg_recommendation_time_api = execute_lsh(output_path, 'rh', 'api', code_examples, api_queries, code_examples_vector, api_query_vectors, m, k, top_n)
-
-            # Execute Random Hyperplane LSH on Natural Language queries.
-            avg_creation_time_nl, avg_recommendation_time_nl = execute_lsh(output_path, 'rh', 'nl', code_examples, nl_queries, code_examples_vector, nl_query_vectors, m, k, top_n)
-            
-            # Calculate weighted average of creation and recommendation times.
-            avg_rh_creation_times.append(np.around(np.average([avg_creation_time_api, avg_creation_time_nl]), 3))
-            avg_rh_recommendation_times.append(np.around(np.average([avg_recommendation_time_api, avg_recommendation_time_nl]), 3))
-
             for w in bucket_width:
-                # Execute Qwery Aware LSH on API queries.
-                avg_creation_time_api, avg_recommendation_time_api = execute_lsh(output_path, 'qa', 'api', code_examples, api_queries, code_examples_vector, api_query_vectors, m, k, top_n, threshold, w)
+                # Execute Qwery Aware LSH on API queries (base model).
+                base_avg_creation_time_api, base_avg_recommendation_time_api = execute_lsh(output_path, 'base', 'api', code_examples, api_queries, base_code_examples_vector, base_api_query_vectors, m, k, top_n, threshold, w)
 
-                # Execute Qwery Aware LSH on Natural Language queries.
-                avg_creation_time_nl, avg_recommendation_time_nl = execute_lsh(output_path, 'qa', 'nl', code_examples, nl_queries, code_examples_vector, nl_query_vectors, m, k, top_n, threshold, w)
+                # Execute Qwery Aware LSH on Natural Language queries (base model).
+                base_avg_creation_time_nl, base_avg_recommendation_time_nl = execute_lsh(output_path, 'base', 'nl', code_examples, nl_queries, base_code_examples_vector, base_nl_query_vectors, m, k, top_n, threshold, w)
+                
+                # Calculate weighted average of creation and recommendation times.
+                base_avg_creation_times.append(np.around(np.average([base_avg_creation_time_api, base_avg_creation_time_nl]), 3))
+                base_avg_recommendation_times.append(np.around(np.average([base_avg_recommendation_time_api, base_avg_recommendation_time_nl]), 3))
+
+                # Execute Qwery Aware LSH on API queries (fine-tuned model).
+                ft_avg_creation_time_api, ft_avg_recommendation_time_api = execute_lsh(output_path, 'fine-tuning', 'api', code_examples, api_queries, ft_code_examples_vector, ft_api_query_vectors, m, k, top_n, threshold, w)
+
+                # Execute Qwery Aware LSH on Natural Language queries (fine-tuned model).
+                ft_avg_creation_time_nl, ft_avg_recommendation_time_nl = execute_lsh(output_path, 'fine-tuning', 'nl', code_examples, nl_queries, ft_code_examples_vector, ft_nl_query_vectors, m, k, top_n, threshold, w)
 
                 # Calculate weighted average of creation and recommendation times.
-                avg_qa_creation_times.append(np.around(np.average([avg_creation_time_api, avg_creation_time_nl]), 3))
-                avg_qa_recommendation_times.append(np.around(np.average([avg_recommendation_time_api, avg_recommendation_time_nl]), 3))
+                ft_avg_creation_times.append(np.around(np.average([ft_avg_creation_time_api, ft_avg_creation_time_nl]), 3))
+                ft_avg_recommendation_times.append(np.around(np.average([ft_avg_recommendation_time_api, ft_avg_recommendation_time_nl]), 3))
 
     # Plot creation time.
-    plot(num_hash_tables=num_hash_tables, rh_times=avg_rh_creation_times, qa_times=avg_qa_creation_times, title='LSH Creation Time', labels=['Number of Hash Tables', 'Creation Time (s)'], output_path=os.path.join(output_path, 'creation_time.png'))
+    plot_model_compare(num_hash_tables=num_hash_tables, base_times=base_avg_creation_times, ft_times=ft_avg_creation_times, title='LSH Creation Time', labels=['Number of Hash Tables', 'Creation Time (s)'], output_path=os.path.join(output_path, 'creation_time.png'))
 
     # Plot recommendation time.
-    plot(num_hash_tables=num_hash_tables, rh_times=avg_rh_recommendation_times, qa_times=avg_qa_recommendation_times, title='LSH Recommendation Time', labels=['Number of Hash Tables', 'Recommendation Time (s)'], output_path=os.path.join(output_path, 'recommendation_time.png'))
+    plot_model_compare(num_hash_tables=num_hash_tables, base_times=base_avg_recommendation_times, ft_times=ft_avg_recommendation_times, title='LSH Recommendation Time', labels=['Number of Hash Tables', 'Recommendation Time (s)'], output_path=os.path.join(output_path, 'recommendation_time.png'))
 
 
 if __name__ == '__main__':

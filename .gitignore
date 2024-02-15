@@ -152,13 +152,15 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
-
-Posts/
+# Custom files
 datasets/code_examples.json
 datasets/dataset.json
 datasets/query-code_examples.json
-embeddings (TSDAE + MNR)/
-model (TSDAE + MNR)/
-results (TSDAE + MNR)/
 sites.txt
+
+# Custom directories
+Posts/
+embeddings**/
+model**/
+results**/
 logs/
